@@ -2,10 +2,9 @@
 title: "Reproducible Research: Peer Assessment 1"
 author: "Henry"
 date: "May 27, 2017"
-output:  
-      html_document:  
-        keep_md: true
-  
+output: 
+  html_document:
+    keep_md: yes
 ---
 
 ```{r setup, include=FALSE}
