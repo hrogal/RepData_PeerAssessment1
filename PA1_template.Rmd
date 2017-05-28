@@ -1,25 +1,111 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Rep Data Project 1"
+author: "Henry"
+date: "May 25, 2017"
+output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyr)
+library(lattice)
+```
+### Purpose
+The purpose of this project is to interrogate the fib bit activity monitor data as part of a class project. There are 4 main questions/goals:
+1. What is mean total number of steps taken per day?
+2. What is the average daily activity pattern?
+3. Imputing missing values
+4. Are there differences in activity patterns between weekdays and weekends?
 
-## Loading and preprocessing the data
+### Load the data set
+
+```{r read data}
+#Get and read file
+#download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip", "factivity.zip")
+#unzip(zipfile = "factivity.zip")
+active<-read.csv("activity.csv")
+```
+
+### Exploratory data analysis
+The date was processed into a date type.
+
+```{r EDA}
+head(active,15)
+dim(active)
+active$date<-as.Date(active$date)
+plot(active$steps~active$date)
+summary(active$steps)
+summary(active$interval)
+```
+Based on the above, the data has date, steps taken in the interval, and the interval of the day. I would expect 12 intervals/hour * 24 hours/day = 288 intervals/day. The interval, however, ends at 00 and the next digit is the hour. So it is a time with the ":" and placeholder "0"s missing.
+
+```{r time preprocessing}
+temp<-active$interval
+temp<-paste(ifelse(temp<10,"000",ifelse(temp>5&temp<100,"00",ifelse(temp>55&temp<1000,"0",""))),temp,sep="")
+active$time<-paste(substr(temp,1,2),substr(temp,3,4),sep=":")
+active$datetime<-as.POSIXct(paste(active$date, active$time))
+plot(active$steps~active$datetime)
+```
+The plot now looks similar, but denser.
+
+```{r What is mean total number of steps taken per day?}
+grouped <- group_by(active, date)
+dailysteps <- summarise(grouped, t_steps = sum(steps, na.rm = TRUE))
+hist(dailysteps$t_steps, main="Total steps per a day", xlab="Steps")
+print("Average steps per a day",quote = F)
+mean(dailysteps$t_steps,na.rm=TRUE)
+print("Median steps per a day",quote = F)
+median(dailysteps$t_steps,na.rm=TRUE)
+
+```
+Next, we want to know what are the average steps taken at each time interval for all the days. Which interval has the highest average number of steps?
+
+```{r What is the average daily activity pattern?}
+grouped <- group_by(active, interval)
+avgsteps <- summarise(grouped, a_steps = mean(steps, na.rm = TRUE))
+plot(x = avgsteps$interval,y=avgsteps$a_steps, type = "l",ylab = "Average steps",main="", xlab="Time interval")
+avgsteps[which(avgsteps$a_steps==max(avgsteps$a_steps)),]$interval
+
+```
+Now deal with the missing values. First we need to know how many missing values there are, and if there is a pattern to them.
+
+```{r Missing values}
+sum(is.na(active$steps))
+x<-unique(active[which(is.na(active$steps)),]$date)
+8 *288
+weekdays(x)
+
+```
+All of the missing values are the entire day, 8 days times 288 intervals. I will impute based on the average steps for each interval by day of the week.
+```{r Imputation}
+active$dayofweek<-weekdays(active$date)
+grouped <- group_by(active, dayofweek, interval)
+avgsteps <- summarise(grouped, a_steps = mean(steps, na.rm = TRUE))
+df<- spread(avgsteps, dayofweek, a_steps, fill = NA)
+Imputes<-df[weekdays(x)]
+names(Imputes)<-1:8 #Gather works better with unique column names
+Imputes<-gather(Imputes)
+active.1<-active
+active.1[which(is.na(active.1$steps)),]$steps<-Imputes$value
+grouped <- group_by(active.1, date)
+dailysteps <- summarise(grouped, t_steps = sum(steps, na.rm = TRUE))
+hist(dailysteps$t_steps, main="Total steps per a day", xlab="Steps")
+print("Average steps per a day",quote = F)
+mean(dailysteps$t_steps,na.rm=TRUE)
+print("Median steps per a day",quote = F)
+median(dailysteps$t_steps,na.rm=TRUE)
 
 
+```
+The average and median steps per a day are higher in the dataset with imputation performed.
+Based on a comparison the historgrams, we see that the 8 days with missing values contibuted had total steps of 0, and this weighted the 0-5000 steps bin of the histogram. Following imputation, the historgam looks normally distributed. Imputing yields a more realisitc estimate of the total steps per day.
 
-## What is mean total number of steps taken per day?
+```{r Are there differences in activity patterns between weekdays and weekends?}
+active.1$weekday<-as.factor(ifelse(active.1$dayofweek%in%c("Monday","Tuesday","Wednesday","Thursday","Friday"),
+                         "weekday","weekend"))
+grouped <- group_by(active.1, weekday, interval)
+avgsteps <- summarise(grouped, a_steps = mean(steps))
+xyplot(a_steps~interval|weekday,type='l',layout=c(1,2),data=avgsteps, xlab="Interval",ylab="Average number of steps")
 
-
-
-## What is the average daily activity pattern?
-
-
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
+```
