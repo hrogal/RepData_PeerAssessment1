@@ -1,8 +1,9 @@
 ---
-title: "Rep Data Project 1"
+title: "Reproducible Research: Peer Assessment 1"
 author: "Henry"
-date: "May 25, 2017"
-output: html_document
+date: "May 27, 2017"
+output: html_document:
+    keep_md: true
 ---
 
 ```{r setup, include=FALSE}
